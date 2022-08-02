@@ -1,4 +1,8 @@
 function (c, a) {        
+    // o========================================================================o
+    //                               repairCall
+    // o========================================================================o
+
     let corrupt = /`.[¡¢Á¤Ã¦§¨©ª]`/g
     
     function repair (s1, s2) {
@@ -15,11 +19,6 @@ function (c, a) {
     }
 
     // c: callback, a: arguments to callback
-    //
-    // TODO/GLITCH: I've seen instances where 
-    // this causes script to timeout. 
-    // My guess is that it is due to persistant
-    // corruption on one location.
     function repairCall (c, a) {
         let s = c(a), i, r
         
@@ -39,7 +38,91 @@ function (c, a) {
         return s
     }
 
+    // o========================================================================o
+    //                               strProxy
+    // o========================================================================o
+
+    //@ patch string.charAt
+    //@ patch string.charCodeAt
+    //@ patch string.codePointAt
+    //@ patch string.concat
+    //@ patch string.endsWith
+    //@ patch string.includes
+    //@ patch string.indexOf
+    //@ patch string.lastIndexOf
+    //@ patch string.localeCompare
+    //@ patch string.match
+    //@ patch string.matchAll
+    //@ patch string.normalize
+    //@ patch string.padEnd
+    //@ patch string.repeat
+    //@ patch string.replace
+    //@ patch string.replaceAll
+    //@ patch string.search
+    //@ patch string.slice
+    //@ patch string.split
+    //@ patch string.startsWith
+    //@ patch string.substring
+    //@ patch string.toLocaleLowerCase
+    //@ patch string.toLocaleUpperCase
+    //@ patch string.toLowerCase
+    //@ patch string.toUpperCase
+    //@ patch string.trim
+    //@ patch string.trimEnd
+    //@ patch string.trimStart
+
+    let stringPatches = [...#fs.scripts.quine().matchAll(/\/\/@ patch string\.(\S+)/g)].map(m => m[1])
+        
+    function strProxy(str, argFilter, retFilter) {       
+        function call(s, f, sym, ...a) {
+            return retFilter(s, f, s[sym](...argFilter(s, f, ...a)))
+        }         
+        let o = {
+            // Can't get Symbol.iterator literal
+            [Symbol.iterator]: function () {
+                return call(str, "@@iterator", Symbol.iterator, ...arguments)
+            },
+            // Can't assign 'toString' outside of declaration
+            toString: function () {
+                return call(str, "toString", "toString", ...arguments)
+            },
+            // Can't assign 'valueOf' outside of declaration
+            valueOf: function () {
+                return call(str, "valueOf", "valueOf", ...arguments)
+            },
+        }
+        
+        // Patch each function 
+        stringPatches.forEach(func => {
+            o[func] = function () {                                        
+                return call(str, func, func, ...arguments)
+            }
+        })
+
+        return o
+    }
+
+    // o========================================================================o
+    //                               scrProxy
+    // o========================================================================o
+
+    function scrProxy(s, argFilter, retFilter) {
+        let p = {
+            name: s.name,            
+        }
+        p.call = function() {
+            return retFilter(s.name, s.call(...argFilter(s.name, ...arguments)))
+        }
+        return p
+    }
+
+    // o========================================================================o
+    //                           public library calls
+    // o========================================================================o
+
     return {
         repairCall: repairCall,
+        strProxy: strProxy,
+        scrProxy, scrProxy,
     }
 }
